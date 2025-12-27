@@ -270,7 +270,7 @@ function handleStickerContextMenu(e: MouseEvent, stickerId: string) {
   emit('showContextMenu', {
     x: e.clientX,
     y: e.clientY,
-    stickerId: store.selectedStickerIds.length > 1 && store.selectedStickerIds.includes(stickerId) ? null : stickerId
+    stickerId: store.selectedStickerIds.length > 1 && store.selectedStickerIds.includes(stickerId) ? undefined : stickerId
   })
 }
 
