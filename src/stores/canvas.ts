@@ -591,6 +591,7 @@ export const useCanvasStore = defineStore('canvas', () => {
     undo,
     redo,
     clearCanvas,
+    saveHistory,
     // 新增的操作分组功能
     startOperationGroup,
     saveStickerStateBeforeOperation,

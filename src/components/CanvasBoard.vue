@@ -303,14 +303,14 @@ function handleMouseUp() {
   stickerStartMap.value.clear()
   
   // 确保立即保存任何待处理的历史记录
-  if (store.rotationSaveTimeout && store.rotationSaveTimeout.value) {
-    clearTimeout(store.rotationSaveTimeout.value)
-    store.rotationSaveTimeout.value = null
+  if (store.rotationSaveTimeout) {
+    clearTimeout(store.rotationSaveTimeout)
+    store.rotationSaveTimeout = null
     store.saveHistory('rotate_sticker')
   }
-  if (store.scaleSaveTimeout && store.scaleSaveTimeout.value) {
-    clearTimeout(store.scaleSaveTimeout.value)
-    store.scaleSaveTimeout.value = null
+  if (store.scaleSaveTimeout) {
+    clearTimeout(store.scaleSaveTimeout)
+    store.scaleSaveTimeout = null
     store.saveHistory('scale_sticker')
   }
 
