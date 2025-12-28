@@ -217,7 +217,7 @@ function handleMouseMove(e: MouseEvent) {
         store.updateSticker(id, {
           x: start.x + dx,
           y: start.y + dy
-        })
+        }, { isDrag: true })
       }
     })
   } else if (isResizing.value) {
@@ -301,18 +301,6 @@ function handleMouseUp() {
   selectionBox.value = { x: 0, y: 0, width: 0, height: 0 }
   resizeDirection.value = ''
   stickerStartMap.value.clear()
-  
-  // 确保立即保存任何待处理的历史记录
-  if (store.rotationSaveTimeout) {
-    clearTimeout(store.rotationSaveTimeout)
-    store.rotationSaveTimeout = null
-    store.saveHistory('rotate_sticker')
-  }
-  if (store.scaleSaveTimeout) {
-    clearTimeout(store.scaleSaveTimeout)
-    store.scaleSaveTimeout = null
-    store.saveHistory('scale_sticker')
-  }
 
   document.removeEventListener('mousemove', handleMouseMove)
   document.removeEventListener('mouseup', handleMouseUp)

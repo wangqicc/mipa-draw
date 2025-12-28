@@ -38,6 +38,7 @@ function addStickerToCanvas(sticker: { id: string; type: 'image' | 'svg'; src: s
     width: 100,
     height: 100,
     rotation: 0,
+    // 新贴纸使用最大层级+1，确保在最上层
     zIndex: store.maxZIndex + 1,
     name: sticker.name
   }
@@ -144,7 +145,10 @@ function removeUploadedSticker(id: string) {
         <div 
           v-for="sticker in uploadedStickers"
           :key="sticker.id"
-          class="flex items-center gap-2 p-2 border border-gray-200 rounded group"
+          class="flex items-center gap-2 p-2 border border-gray-200 rounded group cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors"
+          draggable="true"
+          @dragstart="(e) => handleDragStart(e, sticker)"
+          @click="addStickerToCanvas(sticker)"
         >
           <div class="w-10 h-10 flex items-center justify-center bg-gray-100 rounded">
             <img 
@@ -161,7 +165,7 @@ function removeUploadedSticker(id: string) {
           <span class="flex-1 text-sm text-gray-700 truncate">{{ sticker.name }}</span>
           <button 
             class="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-            @click="removeUploadedSticker(sticker.id)"
+            @click.stop="removeUploadedSticker(sticker.id)"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>

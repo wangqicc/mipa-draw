@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
 import StickerPanel from '@/components/StickerPanel.vue'
 import { useCanvasStore } from '@/stores/canvas'
+import type { Sticker } from '@/types'
 
 describe('StickerPanel.vue', () => {
   let wrapper: any
@@ -361,7 +362,24 @@ describe('StickerPanel.vue', () => {
 
   it('sets correct z-index for new stickers', async () => {
     const addStickerSpy = vi.spyOn(store, 'addSticker')
-    store.maxZIndex = 5
+    
+    // 添加一些贴纸来设置maxZIndex，而不是直接修改只读属性
+    const testSticker = {
+      id: 'test-1',
+      type: 'image' as const,
+      src: 'test.jpg',
+      x: 100,
+      y: 100,
+      width: 50,
+      height: 50,
+      rotation: 0,
+      zIndex: 5,
+      name: 'Test Sticker'
+    }
+    store.addSticker(testSticker)
+    
+    // 获取添加后的maxZIndex
+    const currentMaxZIndex = store.maxZIndex
 
     const stickerItems = wrapper.findAll('[draggable="true"]')
     const firstSticker = stickerItems[0]
@@ -370,6 +388,10 @@ describe('StickerPanel.vue', () => {
 
     // The zIndex should be set by the store, not the component
     expect(addStickerSpy).toHaveBeenCalled()
+    
+    // 验证新贴纸的zIndex正确递增（应该等于maxZIndex + 1）
+    const lastCall = addStickerSpy.mock.calls[addStickerSpy.mock.calls.length - 1]?.[0] as Sticker | undefined
+    expect(lastCall?.zIndex).toBe(currentMaxZIndex + 1) // 应该等于当前maxZIndex + 1
   })
 
   it('handles drag events with proper data', async () => {
