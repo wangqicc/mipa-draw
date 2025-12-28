@@ -24,6 +24,7 @@ export interface CanvasSettings {
 
 export interface HistoryState {
   stickers: Sticker[]
+  selectedStickerIds: string[]
   timestamp: number
 }
 

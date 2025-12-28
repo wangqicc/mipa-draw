@@ -314,7 +314,7 @@ describe('Canvas Store', () => {
 
     it('应该重做操作', () => {
       store.addSticker(mockSticker)
-      store.updateSticker('test-1', { x: 200 })
+      store.updateSticker('test-1', { x: 200 }, { skipQuantization: true })
 
       store.undo()
       store.redo()

@@ -109,6 +109,7 @@ describe('类型定义', () => {
 
       const historyState: HistoryState = {
         stickers,
+        selectedStickerIds: ['sticker-1'],
         timestamp: Date.now()
       }
 

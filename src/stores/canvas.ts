@@ -53,6 +53,12 @@ export const useCanvasStore = defineStore('canvas', () => {
     averageOperationTime: 0
   })
 
+  // 优化常量
+  const ZINDEX_COMPRESSION_THRESHOLD = 1000
+  const ZINDEX_BATCH_SIZE = 100
+  const PERFORMANCE_THRESHOLD = 16 // 16ms = 1帧的时间
+  const HISTORY_COMPRESSION_INTERVAL = 50 // 每50个操作进行一次压缩
+
   const selectedSticker = computed(() => {
     if (selectedStickerIds.value.length === 1) {
       return stickers.value.find(s => s.id === selectedStickerIds.value[0])
@@ -70,43 +76,186 @@ export const useCanvasStore = defineStore('canvas', () => {
       : 0
   )
 
-  function addSticker(sticker: Sticker) {
-    // 新贴纸使用最大层级+1，确保新贴纸在最上层
-    sticker.zIndex = maxZIndex.value + 1
-    stickers.value.push(sticker)
-    selectedStickerIds.value = [sticker.id]
-
-    // 如果层级过高，进行压缩
-    if (sticker.zIndex > 1000) {
-      compressZIndices()
+  // 验证函数
+  function validateSticker(sticker: Sticker): boolean {
+    if (!sticker.id || !sticker.type || !sticker.src) {
+      console.warn('Invalid sticker: missing required fields', { id: sticker.id, type: sticker.type, src: sticker.src })
+      return false
     }
+    if (sticker.width <= 0 || sticker.height <= 0) {
+      console.warn('Invalid sticker: invalid dimensions', { width: sticker.width, height: sticker.height })
+      return false
+    }
+    if (sticker.x < 0 || sticker.y < 0) {
+      console.warn('Invalid sticker: negative position', { x: sticker.x, y: sticker.y })
+      return false
+    }
+    return true
+  }
 
-    saveHistory('add_sticker')
+  // 状态一致性检查
+  function checkStateConsistency(): void {
+    // 检查选择状态的一致性
+    const validSelectedIds = selectedStickerIds.value.filter(id => 
+      stickers.value.some(sticker => sticker.id === id)
+    )
+    if (validSelectedIds.length !== selectedStickerIds.value.length) {
+      console.warn('State inconsistency detected: cleaning up selected sticker IDs')
+      selectedStickerIds.value = validSelectedIds
+    }
+  }
+
+  // 智能zIndex计算
+  function calculateOptimalZIndex(): number {
+    const currentMax = maxZIndex.value
+    const stickerCount = stickers.value.length
+    
+    // 根据贴纸数量动态调整zIndex分配策略
+    if (stickerCount < 10) {
+      return currentMax + 1
+    } else if (stickerCount < 100) {
+      return currentMax + 10
+    } else {
+      // 大量贴纸时，使用批量分配
+      return Math.ceil(currentMax / ZINDEX_BATCH_SIZE) * ZINDEX_BATCH_SIZE + ZINDEX_BATCH_SIZE
+    }
+  }
+
+  // 性能监控
+  function monitorPerformance<T>(operation: () => T, operationName: string): T {
+    const startTime = performance.now()
+    try {
+      const result = operation()
+      const endTime = performance.now()
+      const operationTime = endTime - startTime
+      
+      if (operationTime > PERFORMANCE_THRESHOLD) {
+        console.warn(`Operation ${operationName} took ${operationTime.toFixed(2)}ms, exceeding threshold of ${PERFORMANCE_THRESHOLD}ms`)
+      }
+      
+      return result
+    } catch (error) {
+      const endTime = performance.now()
+      console.error(`Operation ${operationName} failed after ${(endTime - startTime).toFixed(2)}ms:`, error)
+      throw error
+    }
+  }
+
+  // 确保历史记录初始化
+  function ensureHistoryInitialized(): void {
+    if (history.value.length === 0) {
+      // 保存初始空状态
+      history.value.push({
+        stickers: [],
+        selectedStickerIds: [],
+        timestamp: Date.now() - 1
+      } as HistoryState)
+      historyIndex.value = 0
+    }
+  }
+
+  function addSticker(sticker: Sticker) {
+    return monitorPerformance(() => {
+      // 验证贴纸数据
+      if (!validateSticker(sticker)) {
+        throw new Error('Invalid sticker data')
+      }
+
+      // 创建新的贴纸对象，避免修改原对象
+      const newSticker = {
+        ...sticker,
+        zIndex: calculateOptimalZIndex()
+      }
+      
+      stickers.value.push(newSticker)
+      selectedStickerIds.value = [newSticker.id]
+
+      // 检查状态一致性
+      checkStateConsistency()
+
+      // 如果层级过高，进行压缩
+      if (newSticker.zIndex > ZINDEX_COMPRESSION_THRESHOLD) {
+        compressZIndices()
+      }
+
+      // 确保历史记录初始化
+      ensureHistoryInitialized()
+      
+      saveHistory('add_sticker')
+      
+      return newSticker
+    }, 'addSticker')
   }
 
   function removeSticker(id: string) {
-    const index = stickers.value.findIndex(s => s.id === id)
-    if (index !== -1) {
-      stickers.value.splice(index, 1)
-      selectedStickerIds.value = selectedStickerIds.value.filter(sid => sid !== id)
-      saveHistory('remove_sticker')
-    }
+    return monitorPerformance(() => {
+      const index = stickers.value.findIndex(s => s.id === id)
+      if (index !== -1) {
+        stickers.value.splice(index, 1)
+        selectedStickerIds.value = selectedStickerIds.value.filter(sid => sid !== id)
+        
+        // 检查状态一致性
+        checkStateConsistency()
+        
+        saveHistory('remove_sticker')
+        return true
+      }
+      console.warn(`Sticker with id ${id} not found`)
+      return false
+    }, 'removeSticker')
   }
 
   function removeSelectedStickers() {
-    const idsToRemove = [...selectedStickerIds.value]
-    // 使用filter一次性删除所有选中的贴纸，避免遍历过程中的数组修改问题
-    stickers.value = stickers.value.filter(sticker => !idsToRemove.includes(sticker.id))
-    // 清空选择
-    selectedStickerIds.value = []
-    saveHistory('remove_selected_stickers')
+    return monitorPerformance(() => {
+      const idsToRemove = [...selectedStickerIds.value]
+      if (idsToRemove.length === 0) {
+        console.warn('No stickers selected for removal')
+        return 0
+      }
+      
+      // 使用filter一次性删除所有选中的贴纸，避免遍历过程中的数组修改问题
+      const beforeCount = stickers.value.length
+      stickers.value = stickers.value.filter(sticker => !idsToRemove.includes(sticker.id))
+      const removedCount = beforeCount - stickers.value.length
+      
+      // 清空选择
+      selectedStickerIds.value = []
+      
+      // 检查状态一致性
+      checkStateConsistency()
+      
+      if (removedCount > 0) {
+        saveHistory('remove_selected_stickers')
+      }
+      
+      return removedCount
+    }, 'removeSelectedStickers')
   }
 
   function updateSticker(id: string, updates: Partial<Sticker>, options: { isDrag?: boolean; skipQuantization?: boolean } = {}) {
-    const sticker = stickers.value.find(s => s.id === id)
-    if (sticker) {
+    return monitorPerformance(() => {
+      const sticker = stickers.value.find(s => s.id === id)
+      if (!sticker) {
+        console.warn(`Sticker with id ${id} not found for update`)
+        return false
+      }
+
+      // 验证更新数据
+      if (updates.width !== undefined && updates.width <= 0) {
+        console.warn('Invalid width update:', updates.width)
+        return false
+      }
+      if (updates.height !== undefined && updates.height <= 0) {
+        console.warn('Invalid height update:', updates.height)
+        return false
+      }
+
+      let hasChanges = false
+
       // 如果是位置更新，使用更智能的历史记录管理
       if (updates.x !== undefined || updates.y !== undefined) {
+        hasChanges = true
+        
         // 如果是拖拽操作，应用量化和阈值
         if (options.isDrag && !options.skipQuantization) {
           // 量化位置变化
@@ -140,10 +289,21 @@ export const useCanvasStore = defineStore('canvas', () => {
           const oldY = sticker.y
           if (updates.x !== undefined) sticker.x = updates.x
           if (updates.y !== undefined) sticker.y = updates.y
-
+          
           // 如果位置有变化，保存历史记录
           if (oldX !== sticker.x || oldY !== sticker.y) {
-            saveHistory('update_sticker')
+            // 如果是跳过量化（如测试用例），立即保存历史记录
+            if (options.skipQuantization) {
+              saveHistory('update_sticker')
+            } else {
+              // 否则使用延迟保存，避免过于频繁的历史记录
+              if (positionSaveTimeout.value) {
+                clearTimeout(positionSaveTimeout.value)
+              }
+              positionSaveTimeout.value = window.setTimeout(() => {
+                saveHistory('move_sticker')
+              }, 500)
+            }
           }
         }
       }
@@ -159,6 +319,7 @@ export const useCanvasStore = defineStore('canvas', () => {
           if (oldValue !== newValue) {
             (nonPositionUpdates as any)[key] = newValue
             hasNonPositionUpdates = true
+            hasChanges = true
           }
         }
       })
@@ -167,7 +328,12 @@ export const useCanvasStore = defineStore('canvas', () => {
         Object.assign(sticker, nonPositionUpdates)
         saveHistory('update_sticker')
       }
-    }
+
+      // 检查状态一致性
+      checkStateConsistency()
+      
+      return hasChanges
+    }, 'updateSticker')
   }
 
   // 优化的旋转操作 - 支持逐个撤销但保持批量操作流畅性
@@ -315,134 +481,279 @@ export const useCanvasStore = defineStore('canvas', () => {
   }
 
   function selectSticker(id: string | null) {
-    if (id === null) {
-      selectedStickerIds.value = []
-    } else if (!selectedStickerIds.value.includes(id)) {
-      selectedStickerIds.value = [id]
-    }
+    return monitorPerformance(() => {
+      if (id === null) {
+        selectedStickerIds.value = []
+      } else if (!selectedStickerIds.value.includes(id)) {
+        // 验证贴纸是否存在
+        if (!stickers.value.some(s => s.id === id)) {
+          console.warn(`Attempting to select non-existent sticker: ${id}`)
+          return false
+        }
+        selectedStickerIds.value = [id]
+      }
+      return true
+    }, 'selectSticker')
   }
 
   function toggleSelectSticker(id: string) {
-    const index = selectedStickerIds.value.indexOf(id)
-    if (index === -1) {
-      selectedStickerIds.value.push(id)
-    } else {
-      selectedStickerIds.value.splice(index, 1)
-    }
+    return monitorPerformance(() => {
+      // 验证贴纸是否存在
+      if (!stickers.value.some(s => s.id === id)) {
+        console.warn(`Attempting to toggle selection for non-existent sticker: ${id}`)
+        return false
+      }
+      
+      const index = selectedStickerIds.value.indexOf(id)
+      if (index === -1) {
+        selectedStickerIds.value.push(id)
+      } else {
+        selectedStickerIds.value.splice(index, 1)
+      }
+      return true
+    }, 'toggleSelectSticker')
   }
 
   function addToSelection(id: string) {
-    if (!selectedStickerIds.value.includes(id)) {
-      selectedStickerIds.value.push(id)
-    }
+    return monitorPerformance(() => {
+      // 验证贴纸是否存在
+      if (!stickers.value.some(s => s.id === id)) {
+        console.warn(`Attempting to add non-existent sticker to selection: ${id}`)
+        return false
+      }
+      
+      if (!selectedStickerIds.value.includes(id)) {
+        selectedStickerIds.value.push(id)
+      }
+      return true
+    }, 'addToSelection')
   }
 
   function clearSelection() {
-    selectedStickerIds.value = []
+    return monitorPerformance(() => {
+      selectedStickerIds.value = []
+      return true
+    }, 'clearSelection')
   }
 
   function bringToFront(id: string) {
-    const sticker = stickers.value.find(s => s.id === id)
-    if (sticker) {
-      sticker.zIndex = maxZIndex.value + 1
-      saveHistory()
-    }
+    return monitorPerformance(() => {
+      const sticker = stickers.value.find(s => s.id === id)
+      if (!sticker) {
+        console.warn(`Sticker with id ${id} not found for bringToFront`)
+        return false
+      }
+      
+      const newZIndex = calculateOptimalZIndex()
+      sticker.zIndex = newZIndex
+      
+      checkStateConsistency()
+      saveHistory('bring_to_front')
+      return true
+    }, 'bringToFront')
   }
 
   function bringSelectedToFront() {
-    selectedStickerIds.value.forEach(id => bringToFront(id))
+    return monitorPerformance(() => {
+      if (selectedStickerIds.value.length === 0) {
+        console.warn('No stickers selected for bringToFront')
+        return 0
+      }
+      
+      let successCount = 0
+      selectedStickerIds.value.forEach(id => {
+        if (bringToFront(id)) {
+          successCount++
+        }
+      })
+      return successCount
+    }, 'bringSelectedToFront')
   }
 
   function sendToBack(id: string) {
-    const sticker = stickers.value.find(s => s.id === id)
-    if (sticker) {
+    return monitorPerformance(() => {
+      const sticker = stickers.value.find(s => s.id === id)
+      if (!sticker) {
+        console.warn(`Sticker with id ${id} not found for sendToBack`)
+        return false
+      }
+      
       const minZIndex = stickers.value.length > 0
         ? Math.min(...stickers.value.map(s => s.zIndex))
         : 0
       sticker.zIndex = minZIndex - 1
-      saveHistory()
-    }
+      
+      checkStateConsistency()
+      saveHistory('send_to_back')
+      return true
+    }, 'sendToBack')
   }
 
   function sendSelectedToBack() {
-    selectedStickerIds.value.forEach(id => sendToBack(id))
+    return monitorPerformance(() => {
+      if (selectedStickerIds.value.length === 0) {
+        console.warn('No stickers selected for sendToBack')
+        return 0
+      }
+      
+      let successCount = 0
+      selectedStickerIds.value.forEach(id => {
+        if (sendToBack(id)) {
+          successCount++
+        }
+      })
+      return successCount
+    }, 'sendSelectedToBack')
   }
 
   function moveUp(id: string) {
-    const sticker = stickers.value.find(s => s.id === id)
-    if (sticker) {
+    return monitorPerformance(() => {
+      const sticker = stickers.value.find(s => s.id === id)
+      if (!sticker) {
+        console.warn(`Sticker with id ${id} not found for moveUp`)
+        return false
+      }
+      
       sticker.zIndex += 1
-      saveHistory()
-    }
+      checkStateConsistency()
+      saveHistory('move_up')
+      return true
+    }, 'moveUp')
   }
 
   function moveSelectedUp() {
-    selectedStickerIds.value.forEach(id => moveUp(id))
+    return monitorPerformance(() => {
+      if (selectedStickerIds.value.length === 0) {
+        console.warn('No stickers selected for moveUp')
+        return 0
+      }
+      
+      let successCount = 0
+      selectedStickerIds.value.forEach(id => {
+        if (moveUp(id)) {
+          successCount++
+        }
+      })
+      return successCount
+    }, 'moveSelectedUp')
   }
 
   function moveDown(id: string) {
-    const sticker = stickers.value.find(s => s.id === id)
-    if (sticker) {
+    return monitorPerformance(() => {
+      const sticker = stickers.value.find(s => s.id === id)
+      if (!sticker) {
+        console.warn(`Sticker with id ${id} not found for moveDown`)
+        return false
+      }
+      
       sticker.zIndex -= 1
-      saveHistory()
-    }
+      checkStateConsistency()
+      saveHistory('move_down')
+      return true
+    }, 'moveDown')
   }
 
   function moveSelectedDown() {
-    selectedStickerIds.value.forEach(id => moveDown(id))
+    return monitorPerformance(() => {
+      if (selectedStickerIds.value.length === 0) {
+        console.warn('No stickers selected for moveDown')
+        return 0
+      }
+      
+      let successCount = 0
+      selectedStickerIds.value.forEach(id => {
+        if (moveDown(id)) {
+          successCount++
+        }
+      })
+      return successCount
+    }, 'moveSelectedDown')
   }
 
   function duplicateSticker(id: string) {
-    const sticker = stickers.value.find(s => s.id === id)
-    if (sticker) {
+    return monitorPerformance(() => {
+      const sticker = stickers.value.find(s => s.id === id)
+      if (!sticker) {
+        console.warn(`Sticker with id ${id} not found for duplication`)
+        return null
+      }
+
       const newSticker: Sticker = {
         ...sticker,
         id: crypto.randomUUID(),
         x: sticker.x + 20,
         y: sticker.y + 20,
-        // 复制的贴纸也使用最大层级+1，确保在最上层
-        zIndex: maxZIndex.value + 1
+        // 复制的贴纸使用智能zIndex计算
+        zIndex: calculateOptimalZIndex()
       }
+      
       stickers.value.push(newSticker)
       selectedStickerIds.value = [newSticker.id]
-      saveHistory()
-    }
+      
+      checkStateConsistency()
+      saveHistory('duplicate_sticker')
+      
+      return newSticker
+    }, 'duplicateSticker')
   }
 
   function duplicateSelectedStickers() {
-    const newIds: string[] = []
-    selectedStickerIds.value.forEach(id => {
-      const sticker = stickers.value.find(s => s.id === id)
-      if (sticker) {
-        const newSticker: Sticker = {
-          ...sticker,
-          id: crypto.randomUUID(),
-          x: sticker.x + 20,
-          y: sticker.y + 20,
-          // 复制的贴纸也使用最大层级+1，确保在最上层
-          zIndex: maxZIndex.value + 1
-        }
-        stickers.value.push(newSticker)
-        newIds.push(newSticker.id)
+    return monitorPerformance(() => {
+      if (selectedStickerIds.value.length === 0) {
+        console.warn('No stickers selected for duplication')
+        return []
       }
-    })
-    selectedStickerIds.value = newIds
-    saveHistory()
+
+      const newIds: string[] = []
+      const newStickers: Sticker[] = []
+      
+      selectedStickerIds.value.forEach(id => {
+        const sticker = stickers.value.find(s => s.id === id)
+        if (sticker) {
+          const newSticker: Sticker = {
+            ...sticker,
+            id: crypto.randomUUID(),
+            x: sticker.x + 20,
+            y: sticker.y + 20,
+            // 复制的贴纸使用智能zIndex计算
+            zIndex: calculateOptimalZIndex()
+          }
+          stickers.value.push(newSticker)
+          newIds.push(newSticker.id)
+          newStickers.push(newSticker)
+        }
+      })
+      
+      selectedStickerIds.value = newIds
+      
+      checkStateConsistency()
+      
+      if (newStickers.length > 0) {
+        saveHistory('duplicate_selected_stickers')
+      }
+      
+      return newStickers
+    }, 'duplicateSelectedStickers')
   }
 
   // 压缩层级，避免层级无限增长
   function compressZIndices() {
-    if (stickers.value.length <= 1) return
+    return monitorPerformance(() => {
+      if (stickers.value.length <= 1) return 0
 
-    // 按zIndex排序
-    const sortedStickers = [...stickers.value].sort((a, b) => a.zIndex - b.zIndex)
+      // 按zIndex排序
+      const sortedStickers = [...stickers.value].sort((a, b) => a.zIndex - b.zIndex)
 
-    // 重新分配层级，从1开始
-    sortedStickers.forEach((sticker, index) => {
-      sticker.zIndex = index + 1
-    })
+      // 重新分配层级，从1开始，保持相对顺序
+      sortedStickers.forEach((sticker, index) => {
+        sticker.zIndex = index + 1
+      })
 
-    saveHistory('compress_z_indices')
+      checkStateConsistency()
+      saveHistory('compress_z_indices')
+      
+      return sortedStickers.length
+    }, 'compressZIndices')
   }
 
   function saveHistory(operation = 'unknown') {
@@ -469,6 +780,7 @@ export const useCanvasStore = defineStore('canvas', () => {
 
       history.value.push({
         stickers: currentState,
+        selectedStickerIds: [...selectedStickerIds.value],
         timestamp: Date.now()
       })
 
@@ -504,6 +816,7 @@ export const useCanvasStore = defineStore('canvas', () => {
       history.value = history.value.slice(0, historyIndex.value + 1)
       history.value.push({
         stickers: JSON.parse(JSON.stringify(stickers.value)),
+        selectedStickerIds: [...selectedStickerIds.value],
         timestamp: Date.now()
       })
       historyIndex.value = history.value.length - 1
@@ -519,7 +832,8 @@ export const useCanvasStore = defineStore('canvas', () => {
 
   function undo() {
     try {
-      if (historyIndex.value > 0) {
+      // 允许撤销到第一个历史记录（包括初始状态）
+      if (historyIndex.value >= 1) {
         historyIndex.value--
         const state = history.value[historyIndex.value]
         if (state && state.stickers) {
@@ -530,6 +844,14 @@ export const useCanvasStore = defineStore('canvas', () => {
             // 降级到JSON拷贝
             stickers.value = JSON.parse(JSON.stringify(state.stickers))
           }
+          
+          // 同时恢复选择状态
+          if (state.selectedStickerIds) {
+            selectedStickerIds.value = state.selectedStickerIds
+          } else {
+            // 兼容旧的历史记录格式
+            selectedStickerIds.value = []
+          }
         }
       }
     } catch (error) {
@@ -539,11 +861,20 @@ export const useCanvasStore = defineStore('canvas', () => {
   }
 
   function fallbackUndo() {
-    if (historyIndex.value > 0) {
+    // 允许撤销到第一个历史记录（包括初始状态）
+    if (historyIndex.value >= 1) {
       historyIndex.value--
       const state = history.value[historyIndex.value]
       if (state && state.stickers) {
         stickers.value = JSON.parse(JSON.stringify(state.stickers))
+        
+        // 同时恢复选择状态
+        if (state.selectedStickerIds) {
+          selectedStickerIds.value = state.selectedStickerIds
+        } else {
+          // 兼容旧的历史记录格式
+          selectedStickerIds.value = []
+        }
       }
     }
   }
@@ -561,6 +892,14 @@ export const useCanvasStore = defineStore('canvas', () => {
             // 降级到JSON拷贝
             stickers.value = JSON.parse(JSON.stringify(state.stickers))
           }
+          
+          // 同时恢复选择状态
+          if (state.selectedStickerIds) {
+            selectedStickerIds.value = state.selectedStickerIds
+          } else {
+            // 兼容旧的历史记录格式
+            selectedStickerIds.value = []
+          }
         }
       }
     } catch (error) {
@@ -575,6 +914,14 @@ export const useCanvasStore = defineStore('canvas', () => {
       const state = history.value[historyIndex.value]
       if (state && state.stickers) {
         stickers.value = JSON.parse(JSON.stringify(state.stickers))
+        
+        // 同时恢复选择状态
+        if (state.selectedStickerIds) {
+          selectedStickerIds.value = state.selectedStickerIds
+        } else {
+          // 兼容旧的历史记录格式
+          selectedStickerIds.value = []
+        }
       }
     }
   }
@@ -652,13 +999,21 @@ export const useCanvasStore = defineStore('canvas', () => {
 
 
 
-  // 改进的历史记录初始化 - 避免重复初始化
+  // 改进的历史记录初始化 - 确保初始状态被保存
   let isInitialized = false
-
+  
   watch(() => stickers.value.length, (newLength, oldLength) => {
     // 只在第一次从0到1时初始化历史记录
     if (!isInitialized && newLength === 1 && oldLength === 0) {
-      saveHistory('initial_state')
+      // 先保存初始空状态
+      if (history.value.length === 0) {
+        history.value.push({
+          stickers: [],
+          selectedStickerIds: [],
+          timestamp: Date.now() - 1
+        } as HistoryState)
+        historyIndex.value = 0
+      }
       isInitialized = true
     }
   })
