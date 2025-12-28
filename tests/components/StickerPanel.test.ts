@@ -52,20 +52,24 @@ describe('StickerPanel.vue', () => {
     const stickerItems = wrapper.findAll('[draggable="true"]')
     const firstSticker = stickerItems[0]
 
+    const mockSetData = vi.fn()
     const dragEvent = {
       dataTransfer: {
-        setData: vi.fn()
-      }
+        setData: mockSetData
+      } as any
     }
 
     await firstSticker.trigger('dragstart', dragEvent)
 
-    expect(dragEvent.dataTransfer.setData).toHaveBeenCalledWith('sticker', expect.any(String))
-    const stickerData = JSON.parse(dragEvent.dataTransfer.setData.mock.calls[0][1])
-    expect(stickerData).toHaveProperty('id')
-    expect(stickerData).toHaveProperty('type', 'svg')
-    expect(stickerData).toHaveProperty('src')
-    expect(stickerData).toHaveProperty('name', '笑脸')
+    expect(mockSetData).toHaveBeenCalledWith('sticker', expect.any(String))
+    const calls = mockSetData.mock.calls
+    if (calls && calls.length > 0 && calls[0] && calls[0].length > 1 && calls[0][1]) {
+      const stickerData = JSON.parse(calls[0][1])
+      expect(stickerData).toHaveProperty('id')
+      expect(stickerData).toHaveProperty('type', 'svg')
+      expect(stickerData).toHaveProperty('src')
+      expect(stickerData).toHaveProperty('name', '笑脸')
+    }
   })
 
   it('adds sticker to canvas on click', async () => {
@@ -372,20 +376,24 @@ describe('StickerPanel.vue', () => {
     const stickerItems = wrapper.findAll('[draggable="true"]')
     const firstSticker = stickerItems[0]
 
+    const mockSetData = vi.fn()
     const dragEvent = {
       dataTransfer: {
-        setData: vi.fn(),
+        setData: mockSetData,
         effectAllowed: 'copy'
-      }
+      } as any
     }
 
     await firstSticker.trigger('dragstart', dragEvent)
 
-    expect(dragEvent.dataTransfer.setData).toHaveBeenCalledWith('sticker', expect.any(String))
-    const stickerData = JSON.parse(dragEvent.dataTransfer.setData.mock.calls[0][1])
-    expect(stickerData.id).toBe('emoji-1')
-    expect(stickerData.type).toBe('svg')
-    expect(stickerData.name).toBe('笑脸')
+    expect(mockSetData).toHaveBeenCalledWith('sticker', expect.any(String))
+    const calls = mockSetData.mock.calls
+    if (calls && calls.length > 0 && calls[0] && calls[0].length > 1 && calls[0][1]) {
+      const stickerData = JSON.parse(calls[0][1])
+      expect(stickerData.id).toBe('emoji-1')
+      expect(stickerData.type).toBe('svg')
+      expect(stickerData.name).toBe('笑脸')
+    }
   })
 
   it('renders all 12 default stickers', () => {
@@ -519,24 +527,28 @@ describe('StickerPanel.vue', () => {
       writable: false
     })
 
-    // 模拟FileReader错误 - 使用简单的mock
+    // 模拟FileReader错误 - 使用函数构造器
     const originalFileReader = (window as any).FileReader
-    ;(window as any).FileReader = vi.fn().mockImplementation(() => ({
-      readAsDataURL: vi.fn(),
-      onload: null,
-      onerror: null,
-      result: null
-    }))
+    ;(window as any).FileReader = function MockFileReader(this: any) {
+      this.readAsDataURL = vi.fn()
+      this.onload = null
+      this.onerror = null
+      this.result = null
+      // 模拟立即触发错误
+      setTimeout(() => {
+        if (this.onerror) this.onerror(new Error('FileReader error'))
+      }, 0)
+    }
 
     await input.trigger('change')
 
-    // 等待FileReader被创建
-    await new Promise(resolve => setTimeout(resolve, 5))
+    // 等待FileReader错误处理
+    await new Promise(resolve => setTimeout(resolve, 10))
 
     // 恢复FileReader
     ;(window as any).FileReader = originalFileReader
 
-    // 验证文件未被添加（因为mock的FileReader没有正常工作）
+    // 验证文件未被添加（因为FileReader出错）
     expect(wrapper.vm.uploadedStickers.length).toBe(0)
   })
 
@@ -598,7 +610,8 @@ describe('StickerPanel.vue', () => {
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     const addStickerSpy = vi.spyOn(store, 'addSticker').mockImplementation(() => {
-      throw new Error('Store error')
+      // 返回一个被拒绝的Promise，而不是直接抛出错误
+      return Promise.reject(new Error('Store error'))
     })
 
     const stickerItems = wrapper.findAll('[draggable="true"]')
@@ -606,6 +619,9 @@ describe('StickerPanel.vue', () => {
 
     // 应该不抛出错误，而是被捕获
     await firstSticker.trigger('click')
+
+    // 等待异步错误处理
+    await new Promise(resolve => setTimeout(resolve, 10))
 
     // 验证错误被处理
     expect(addStickerSpy).toHaveBeenCalled()

@@ -164,7 +164,7 @@ describe('App.vue', () => {
       getData: (format: string) => {
         if (format === 'sticker') {
           return JSON.stringify({
-            type: 'text',
+            type: 'svg',
             src: 'test.png',
             name: '测试贴纸'
           })
@@ -182,8 +182,8 @@ describe('App.vue', () => {
     // 验证贴纸被添加
     expect(store.stickers.length).toBeGreaterThan(0)
     const newSticker = store.stickers[store.stickers.length - 1]
-    expect(newSticker.type).toBe('text')
-    expect(newSticker.name).toBe('测试贴纸')
+    expect(newSticker?.type).toBe('svg')
+    expect(newSticker?.name).toBe('测试贴纸')
   })
 
   it('应该处理无效的拖拽数据', async () => {
@@ -222,7 +222,7 @@ describe('App.vue', () => {
     // 添加一个操作以便撤销
     store.addSticker({
       id: 'test-1',
-      type: 'text',
+      type: 'svg',
       src: 'test.png',
       x: 100,
       y: 100,
@@ -256,7 +256,7 @@ describe('App.vue', () => {
     // 添加一个操作以便撤销和重做
     store.addSticker({
       id: 'test-1',
-      type: 'text',
+      type: 'svg',
       src: 'test.png',
       x: 100,
       y: 100,
@@ -293,7 +293,7 @@ describe('App.vue', () => {
     // 添加选中的贴纸
     const sticker = {
       id: 'test-1',
-      type: 'text' as const,
+      type: 'svg' as const,
       src: 'test.png',
       x: 100,
       y: 100,

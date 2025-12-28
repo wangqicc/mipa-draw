@@ -24,6 +24,24 @@ export const useCanvasStore = defineStore('canvas', () => {
   const groupTimeout = ref<number | null>(null)
   const lastStickerStates = ref<Map<string, Sticker>>(new Map())
   const maxHistorySize = 100 // 增加历史记录限制
+  
+  // 旋转和缩放专用状态
+  const rotationStartValue = ref<number>(0)
+  const scaleStartValues = ref<{width: number, height: number}>({width: 0, height: 0})
+  const transformationThreshold = ref({
+    rotation: 5, // 旋转阈值：5度
+    scale: 10 // 缩放阈值：10像素
+  })
+  
+  // 量化设置
+  const quantization = ref({
+    rotation: 5, // 旋转量化到5度的倍数
+    scale: 5 // 缩放量化到5像素的倍数
+  })
+  
+  // 独立的延迟保存超时
+  const rotationSaveTimeout = ref<number | null>(null)
+  const scaleSaveTimeout = ref<number | null>(null)
 
   // 性能监控
   const historyStats = ref({
@@ -86,6 +104,150 @@ export const useCanvasStore = defineStore('canvas', () => {
 
       Object.assign(sticker, updates)
       saveHistory('update_sticker')
+    }
+  }
+
+  // 优化的旋转操作 - 支持逐个撤销但保持批量操作流畅性
+  function updateStickerRotation(id: string, rotation: number) {
+    const sticker = stickers.value.find(s => s.id === id)
+    if (sticker) {
+      // 量化旋转角度
+      const quantizedRotation = Math.round(rotation / quantization.value.rotation) * quantization.value.rotation
+      
+      // 检查是否需要创建新的历史记录（基于阈值）
+      const rotationDiff = Math.abs(quantizedRotation - sticker.rotation)
+      if (rotationDiff >= transformationThreshold.value.rotation) {
+        // 保存当前贴纸的状态，为独立的撤销做准备
+        saveStickerStateBeforeOperation(id)
+        
+        // 更新贴纸旋转角度
+        sticker.rotation = quantizedRotation
+        
+        // 使用延迟保存，避免过于频繁的历史记录创建
+        if (rotationSaveTimeout.value) {
+          clearTimeout(rotationSaveTimeout.value)
+        }
+        rotationSaveTimeout.value = window.setTimeout(() => {
+          saveHistory('rotate_sticker')
+        }, 300)
+      }
+    }
+  }
+
+  // 优化的缩放操作 - 支持逐个撤销
+  function updateStickerScale(id: string, width: number, height: number) {
+    const sticker = stickers.value.find(s => s.id === id)
+    if (sticker) {
+      // 量化尺寸
+      const quantizedWidth = Math.round(width / quantization.value.scale) * quantization.value.scale
+      const quantizedHeight = Math.round(height / quantization.value.scale) * quantization.value.scale
+      
+      // 检查缩放变化是否达到阈值
+      const widthDiff = Math.abs(quantizedWidth - sticker.width)
+      const heightDiff = Math.abs(quantizedHeight - sticker.height)
+      
+      if (widthDiff >= transformationThreshold.value.scale || heightDiff >= transformationThreshold.value.scale) {
+        // 保存当前贴纸的状态，为独立的撤销做准备
+        saveStickerStateBeforeOperation(id)
+        
+        sticker.width = quantizedWidth
+        sticker.height = quantizedHeight
+        
+        // 使用延迟保存，避免过于频繁的历史记录创建
+        if (scaleSaveTimeout.value) {
+          clearTimeout(scaleSaveTimeout.value)
+        }
+        scaleSaveTimeout.value = window.setTimeout(() => {
+          saveHistory('scale_sticker')
+        }, 300)
+      }
+    }
+  }
+
+  // 开始旋转操作
+  function startRotationOperation(id: string, currentRotation: number) {
+    rotationStartValue.value = currentRotation
+    startOperationGroup('rotate_stickers', 1000)
+    
+    // 保存所有选中贴纸的初始状态
+    selectedStickerIds.value.forEach(stickerId => {
+      const sticker = stickers.value.find(s => s.id === stickerId)
+      if (sticker) {
+        saveStickerStateBeforeOperation(stickerId)
+      }
+    })
+  }
+  
+  // 开始批量旋转操作
+  function startBatchRotationOperation() {
+    startOperationGroup('rotate_stickers', 1000)
+    
+    // 保存所有选中贴纸的初始状态
+    selectedStickerIds.value.forEach(stickerId => {
+      const sticker = stickers.value.find(s => s.id === stickerId)
+      if (sticker) {
+        saveStickerStateBeforeOperation(stickerId)
+      }
+    })
+  }
+  
+  // 批量旋转贴纸 - 一次性处理所有贴纸
+  function batchRotateStickers(centerX: number, centerY: number, newAngle: number) {
+    const quantizedRotation = Math.round(newAngle / quantization.value.rotation) * quantization.value.rotation
+    const rotationDiff = Math.abs(quantizedRotation - rotationStartValue.value)
+    
+    if (rotationDiff >= transformationThreshold.value.rotation) {
+      if (!operationGroup.value || !operationGroup.value.startsWith('rotate')) {
+        startBatchRotationOperation()
+        rotationStartValue.value = quantizedRotation
+      }
+      
+      // 批量更新所有贴纸的旋转角度
+      selectedStickerIds.value.forEach(stickerId => {
+        const sticker = stickers.value.find(s => s.id === stickerId)
+        if (sticker && lastStickerStates.value.has(stickerId)) {
+          const originalState = lastStickerStates.value.get(stickerId)!
+          const originalAngle = Math.atan2(
+            originalState.y + originalState.height / 2 - centerY,
+            originalState.x + originalState.width / 2 - centerX
+          ) * (180 / Math.PI)
+          const newRotation = originalState.rotation + (newAngle - originalAngle)
+          sticker.rotation = Math.round(newRotation / quantization.value.rotation) * quantization.value.rotation
+        }
+      })
+      
+      // 延迟保存历史记录
+      if (!groupTimeout.value) {
+        groupTimeout.value = window.setTimeout(() => {
+          saveHistory('batch_rotate_stickers')
+        }, 200)
+      }
+    }
+  }
+
+  // 开始缩放操作
+  function startScaleOperation(id: string, currentWidth: number, currentHeight: number) {
+    scaleStartValues.value = {width: currentWidth, height: currentHeight}
+    startOperationGroup('scale_stickers', 1000)
+  }
+  
+  // 设置变换阈值
+  function setTransformationThreshold(thresholds: {rotation?: number, scale?: number}) {
+    if (thresholds.rotation !== undefined) {
+      transformationThreshold.value.rotation = thresholds.rotation
+    }
+    if (thresholds.scale !== undefined) {
+      transformationThreshold.value.scale = thresholds.scale
+    }
+  }
+  
+  // 设置量化参数
+  function setQuantization(params: {rotation?: number, scale?: number}) {
+    if (params.rotation !== undefined) {
+      quantization.value.rotation = params.rotation
+    }
+    if (params.scale !== undefined) {
+      quantization.value.scale = params.scale
     }
   }
 
@@ -433,6 +595,19 @@ export const useCanvasStore = defineStore('canvas', () => {
     startOperationGroup,
     saveStickerStateBeforeOperation,
     clearOperationGroup,
-    getHistoryDebugInfo
+    getHistoryDebugInfo,
+    // 新增的旋转和缩放优化函数
+    updateStickerRotation,
+    updateStickerScale,
+    startRotationOperation,
+    startScaleOperation,
+    startBatchRotationOperation,
+    batchRotateStickers,
+    // 新增的设置函数
+    setTransformationThreshold,
+    setQuantization,
+    // 新增的超时变量访问
+    rotationSaveTimeout,
+    scaleSaveTimeout
   }
 })

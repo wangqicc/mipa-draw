@@ -59,7 +59,7 @@ describe('类型定义', () => {
         showGrid: true,
         gridSize: 20,
         gridColor: '#e5e7eb',
-        zoom: 1.5
+
       }
 
       expect(settings).toBeDefined()
@@ -71,7 +71,7 @@ describe('类型定义', () => {
       expect(typeof settings.showGrid).toBe('boolean')
       expect(typeof settings.gridSize).toBe('number')
       expect(typeof settings.gridColor).toBe('string')
-      expect(typeof settings.zoom).toBe('number')
+
     })
 
     it('应该支持可选的背景设置', () => {
@@ -82,7 +82,7 @@ describe('类型定义', () => {
         showGrid: false,
         gridSize: 10,
         gridColor: '#ffffff',
-        zoom: 1
+
       }
 
       expect(minimalSettings.backgroundGradient).toBeUndefined()

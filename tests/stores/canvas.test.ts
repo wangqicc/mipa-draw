@@ -68,9 +68,9 @@ describe('Canvas Store', () => {
       store.updateSticker('test-1', { x: 200, y: 200, width: 100 })
 
       const updatedSticker = store.stickers[0]
-      expect(updatedSticker.x).toBe(200)
-      expect(updatedSticker.y).toBe(200)
-      expect(updatedSticker.width).toBe(100)
+      expect(updatedSticker?.x).toBe(200)
+      expect(updatedSticker?.y).toBe(200)
+      expect(updatedSticker?.width).toBe(100)
     })
 
     it('应该复制贴纸', () => {
@@ -81,10 +81,10 @@ describe('Canvas Store', () => {
       const original = store.stickers[0]
       const duplicate = store.stickers[1]
 
-      expect(duplicate.id).not.toBe(original.id)
-      expect(duplicate.x).toBe(original.x + 20)
-      expect(duplicate.y).toBe(original.y + 20)
-      expect(duplicate.name).toBe(original.name)
+      expect(duplicate?.id).not.toBe(original?.id)
+      expect(duplicate?.x).toBe((original?.x || 0) + 20)
+      expect(duplicate?.y).toBe((original?.y || 0) + 20)
+      expect(duplicate?.name).toBe(original?.name)
     })
 
     it('应该删除选中的贴纸', () => {
@@ -280,22 +280,26 @@ describe('Canvas Store', () => {
       expect(store.stickers.length).toBe(1)
 
       store.updateSticker('test-1', { x: 200 })
-      expect(store.stickers[0].x).toBe(200)
+      expect(store.stickers[0]?.x).toBe(200)
     })
 
     it('应该撤销操作', () => {
       store.addSticker(mockSticker)
+      
+      // 记录初始状态
+      const initialX = store.stickers[0]?.x
+      
+      // 执行更新操作
       store.updateSticker('test-1', { x: 200 })
+      
+      // 验证更新生效
+      expect(store.stickers[0]?.x).toBe(200)
 
-      // Verify the update worked
-      expect(store.stickers[0].x).toBe(200)
-
-      // Test undo - should revert to previous state
+      // 执行撤销
       store.undo()
-
-      // After undo, should be back to original state or previous state
-      // The exact behavior depends on how the history system works
-      expect(store.stickers.length).toBeGreaterThanOrEqual(0)
+      
+      // 验证撤销后位置改变（应该回到初始值）
+      expect(store.stickers[0]?.x).toBe(initialX)
     })
 
     it('应该重做操作', () => {
@@ -306,7 +310,7 @@ describe('Canvas Store', () => {
       store.redo()
 
       const sticker = store.stickers[0]
-      expect(sticker.x).toBe(200)
+      expect(sticker?.x).toBe(200)
     })
 
     it('应该限制历史记录数量', () => {

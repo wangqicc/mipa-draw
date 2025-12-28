@@ -75,11 +75,41 @@ function handleCanvasMouseDown(e: MouseEvent) {
     const selected = store.selectedSticker
     if (selected) {
       isRotating.value = true
-      const centerX = selected.x + selected.width / 2
-      const centerY = selected.y + selected.height / 2
-      const angle = Math.atan2(point.y - centerY, point.x - centerX)
-      dragStart.value = { x: angle * (180 / Math.PI), y: 0 }
-      stickerStartMap.value.set(selected.id, { x: selected.x, y: selected.y, width: selected.width, height: selected.height, rotation: selected.rotation })
+      
+      // 计算所有选中贴纸的中心点
+      let totalX = 0, totalY = 0, count = 0
+      store.selectedStickerIds.forEach(id => {
+        const sticker = store.stickers.find(s => s.id === id)
+        if (sticker) {
+          totalX += sticker.x + sticker.width / 2
+          totalY += sticker.y + sticker.height / 2
+          count++
+        }
+      })
+      
+      if (count > 0) {
+        const centerX = totalX / count
+        const centerY = totalY / count
+        const angle = Math.atan2(point.y - centerY, point.x - centerX)
+        dragStart.value = { x: angle * (180 / Math.PI), y: 0 }
+        
+        // 保存所有选中贴纸的初始状态
+        store.selectedStickerIds.forEach(id => {
+          const sticker = store.stickers.find(s => s.id === id)
+          if (sticker) {
+            stickerStartMap.value.set(id, { 
+              x: sticker.x, 
+              y: sticker.y, 
+              width: sticker.width, 
+              height: sticker.height, 
+              rotation: sticker.rotation 
+            })
+          }
+        })
+        
+        // 初始化批量旋转操作
+        store.startBatchRotationOperation()
+      }
     }
     document.addEventListener('mousemove', handleMouseMove)
     document.addEventListener('mouseup', handleMouseUp)
@@ -106,6 +136,8 @@ function handleStickerMouseDown(e: MouseEvent, sticker: Sticker) {
     isResizing.value = true
     resizeDirection.value = (e.target as HTMLElement).dataset.direction || ''
     stickerStartMap.value.set(sticker.id, { x: sticker.x, y: sticker.y, width: sticker.width, height: sticker.height, rotation: sticker.rotation })
+    // 初始化缩放操作
+    store.startScaleOperation(sticker.id, sticker.width, sticker.height)
   } else if ((e.target as HTMLElement).classList.contains('rotate-handle')) {
     isRotating.value = true
     const point = getCanvasPoint(e)
@@ -222,18 +254,42 @@ function handleMouseMove(e: MouseEvent) {
         break
     }
 
-    store.updateSticker(selectedId!, { width: newWidth, height: newHeight, x: newX, y: newY })
+    store.updateStickerScale(selectedId!, newWidth, newHeight)
+    // 单独更新位置（如果有变化）
+    if (newX !== start.x || newY !== start.y) {
+      store.updateSticker(selectedId!, { x: newX, y: newY })
+    }
   } else if (isRotating.value) {
-    const selectedId = store.selectedStickerIds[0]
-    if (!selectedId) return
-    const start = stickerStartMap.value.get(selectedId)
-    if (!start) return
-
-    const centerX = start.x + start.width / 2
-    const centerY = start.y + start.height / 2
-    const angle = Math.atan2(point.y - centerY, point.x - centerX) * (180 / Math.PI)
-    const rotation = angle - dragStart.value.x + start.rotation
-    store.updateSticker(selectedId, { rotation })
+    // 批量旋转所有选中的贴纸
+    if (store.selectedStickerIds.length === 0) return
+    
+    // 计算所有选中贴纸的中心点
+    let totalX = 0, totalY = 0, count = 0
+    store.selectedStickerIds.forEach(id => {
+      const start = stickerStartMap.value.get(id)
+      if (start) {
+        totalX += start.x + start.width / 2
+        totalY += start.y + start.height / 2
+        count++
+      }
+    })
+    if (count === 0) return
+    
+    const centerX = totalX / count
+    const centerY = totalY / count
+    
+    // 计算当前鼠标角度相对于起始点的变化
+    const currentAngle = Math.atan2(point.y - centerY, point.x - centerX) * (180 / Math.PI)
+    const rotationDelta = currentAngle - dragStart.value.x
+    
+    // 使用批量旋转函数处理所有贴纸
+    store.selectedStickerIds.forEach(id => {
+      const start = stickerStartMap.value.get(id)
+      if (start) {
+        const finalRotation = start.rotation + rotationDelta
+        store.updateStickerRotation(id, finalRotation)
+      }
+    })
   }
 }
 
@@ -245,6 +301,18 @@ function handleMouseUp() {
   selectionBox.value = { x: 0, y: 0, width: 0, height: 0 }
   resizeDirection.value = ''
   stickerStartMap.value.clear()
+  
+  // 确保立即保存任何待处理的历史记录
+  if (store.rotationSaveTimeout && store.rotationSaveTimeout.value) {
+    clearTimeout(store.rotationSaveTimeout.value)
+    store.rotationSaveTimeout.value = null
+    store.saveHistory('rotate_sticker')
+  }
+  if (store.scaleSaveTimeout && store.scaleSaveTimeout.value) {
+    clearTimeout(store.scaleSaveTimeout.value)
+    store.scaleSaveTimeout.value = null
+    store.saveHistory('scale_sticker')
+  }
 
   document.removeEventListener('mousemove', handleMouseMove)
   document.removeEventListener('mouseup', handleMouseUp)
