@@ -13,7 +13,7 @@ describe('CanvasBoard.vue', () => {
     const pinia = createPinia()
     setActivePinia(pinia)
     store = useCanvasStore()
-    
+
     // 添加一些测试贴纸
     store.stickers = [
       {
@@ -41,7 +41,7 @@ describe('CanvasBoard.vue', () => {
         name: '测试贴纸2'
       }
     ]
-    
+
     wrapper = mount(CanvasBoard, {
       global: {
         plugins: [pinia]
@@ -61,7 +61,7 @@ describe('CanvasBoard.vue', () => {
 
     it('renders stickers from store', async () => {
       await wrapper.vm.$nextTick()
-      
+
       const stickerWrappers = wrapper.findAll('.sticker-wrapper')
       expect(stickerWrappers.length).toBe(2)
 
@@ -77,10 +77,10 @@ describe('CanvasBoard.vue', () => {
 
     it('renders SVG stickers correctly', async () => {
       await wrapper.vm.$nextTick()
-      
+
       const firstSticker = wrapper.find('[data-id="test-1"]')
       expect(firstSticker.exists()).toBe(true)
-      
+
       const svgContent = firstSticker.find('div')
       expect(svgContent.exists()).toBe(true)
       expect(svgContent.html()).toContain('circle')
@@ -88,10 +88,10 @@ describe('CanvasBoard.vue', () => {
 
     it('renders image stickers correctly', async () => {
       await wrapper.vm.$nextTick()
-      
+
       const secondSticker = wrapper.find('[data-id="test-2"]')
       expect(secondSticker.exists()).toBe(true)
-      
+
       const imgElement = secondSticker.find('img')
       expect(imgElement.exists()).toBe(true)
       expect(imgElement.attributes('src')).toBe('test-image.jpg')
@@ -101,7 +101,7 @@ describe('CanvasBoard.vue', () => {
   describe('背景样式测试', () => {
     it('applies background styles correctly', () => {
       store.settings.backgroundColor = '#ffffff'
-      
+
       const backgroundStyle = wrapper.vm.backgroundStyle
       expect(backgroundStyle).toBeDefined()
       expect(backgroundStyle.backgroundColor).toBe('#ffffff')
@@ -109,7 +109,7 @@ describe('CanvasBoard.vue', () => {
 
     it('applies gradient background correctly', () => {
       store.settings.backgroundGradient = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-      
+
       const backgroundStyle = wrapper.vm.backgroundStyle
       expect(backgroundStyle).toBeDefined()
       expect(backgroundStyle.backgroundImage).toBe('linear-gradient(135deg, #667eea 0%, #764ba2 100%)')
@@ -118,7 +118,7 @@ describe('CanvasBoard.vue', () => {
     it('applies image background correctly', () => {
       store.settings.backgroundImage = 'data:image/jpeg;base64,test'
       store.settings.backgroundColor = '#f0f0f0'
-      
+
       const backgroundStyle = wrapper.vm.backgroundStyle
       expect(backgroundStyle).toBeDefined()
       expect(backgroundStyle.backgroundImage).toBe('url(data:image/jpeg;base64,test)')
@@ -144,7 +144,7 @@ describe('CanvasBoard.vue', () => {
 
     it('hides grid when disabled', () => {
       store.settings.showGrid = false
-      
+
       const gridStyle = wrapper.vm.gridStyle
       expect(gridStyle.backgroundImage).toBe('none')
     })
@@ -180,19 +180,19 @@ describe('CanvasBoard.vue', () => {
   describe('贴纸选择测试', () => {
     it('selects single sticker', async () => {
       await wrapper.vm.$nextTick()
-      
+
       const firstSticker = wrapper.find('[data-id="test-1"]')
       expect(firstSticker.exists()).toBe(true)
-      
+
       await firstSticker.trigger('mousedown', { clientX: 150, clientY: 150, button: 0 })
-      
+
       expect(store.selectedStickerIds).toContain('test-1')
       expect(store.selectedStickerIds.length).toBe(1)
     })
 
     it('selects multiple stickers with Ctrl key', async () => {
       await wrapper.vm.$nextTick()
-      
+
       // 选择第一个贴纸
       const firstSticker = wrapper.find('[data-id="test-1"]')
       await firstSticker.trigger('mousedown', { 
@@ -201,7 +201,7 @@ describe('CanvasBoard.vue', () => {
         button: 0, 
         ctrlKey: true 
       })
-      
+
       // 选择第二个贴纸
       const secondSticker = wrapper.find('[data-id="test-2"]')
       await secondSticker.trigger('mousedown', { 
@@ -210,7 +210,7 @@ describe('CanvasBoard.vue', () => {
         button: 0, 
         ctrlKey: true 
       })
-      
+
       expect(store.selectedStickerIds).toContain('test-1')
       expect(store.selectedStickerIds).toContain('test-2')
       expect(store.selectedStickerIds.length).toBe(2)
@@ -219,10 +219,10 @@ describe('CanvasBoard.vue', () => {
     it('deselects stickers with Escape key', async () => {
       // 先选择贴纸
       store.selectedStickerIds = ['test-1', 'test-2']
-      
+
       // 直接调用store的clearSelection方法，模拟Escape键行为
       store.clearSelection()
-      
+
       expect(store.selectedStickerIds).toEqual([])
     })
   })
@@ -231,17 +231,17 @@ describe('CanvasBoard.vue', () => {
     it('handles single sticker drag', async () => {
       store.selectedStickerIds = ['test-1']
       await nextTick()
-      
+
       const stickerElement = wrapper.find('[data-id="test-1"]')
       expect(stickerElement.exists()).toBe(true)
-      
+
       // 模拟拖拽开始
       await stickerElement.trigger('mousedown', {
         clientX: 150,
         clientY: 150,
         button: 0
       })
-      
+
       // 模拟拖拽移动
       const mouseMoveEvent = new MouseEvent('mousemove', {
         clientX: 200,
@@ -250,12 +250,12 @@ describe('CanvasBoard.vue', () => {
       })
       document.dispatchEvent(mouseMoveEvent)
       await nextTick()
-      
+
       // 模拟拖拽结束
       const mouseUpEvent = new MouseEvent('mouseup', { bubbles: true })
       document.dispatchEvent(mouseUpEvent)
       await nextTick()
-      
+
       // 验证位置更新
       const updatedSticker = store.stickers.find((s: any) => s.id === 'test-1')
       expect(updatedSticker).toBeDefined()
@@ -264,17 +264,17 @@ describe('CanvasBoard.vue', () => {
     it('handles multi-sticker drag', async () => {
       store.selectedStickerIds = ['test-1', 'test-2']
       await nextTick()
-      
+
       const stickerElement = wrapper.find('[data-id="test-1"]')
       expect(stickerElement.exists()).toBe(true)
-      
+
       // 模拟拖拽开始
       await stickerElement.trigger('mousedown', {
         clientX: 150,
         clientY: 150,
         button: 0
       })
-      
+
       // 模拟拖拽移动
       const mouseMoveEvent = new MouseEvent('mousemove', {
         clientX: 200,
@@ -283,12 +283,12 @@ describe('CanvasBoard.vue', () => {
       })
       document.dispatchEvent(mouseMoveEvent)
       await nextTick()
-      
+
       // 模拟拖拽结束
       const mouseUpEvent = new MouseEvent('mouseup', { bubbles: true })
       document.dispatchEvent(mouseUpEvent)
       await nextTick()
-      
+
       // 验证两个贴纸都被移动
       const firstSticker = store.stickers.find((s: any) => s.id === 'test-1')
       const secondSticker = store.stickers.find((s: any) => s.id === 'test-2')
@@ -301,18 +301,18 @@ describe('CanvasBoard.vue', () => {
     it('handles resize handle interaction', async () => {
       store.selectedStickerIds = ['test-1']
       await nextTick()
-      
+
       // 找到东南角缩放手柄
       const resizeHandle = wrapper.find('[data-id="test-1"] .resize-handle[data-direction="se"]')
       expect(resizeHandle.exists()).toBe(true)
-      
+
       // 模拟缩放开始
       await resizeHandle.trigger('mousedown', {
         clientX: 200,
         clientY: 200,
         button: 0
       })
-      
+
       // 模拟缩放移动
       const mouseMoveEvent = new MouseEvent('mousemove', {
         clientX: 250,
@@ -321,12 +321,12 @@ describe('CanvasBoard.vue', () => {
       })
       document.dispatchEvent(mouseMoveEvent)
       await nextTick()
-      
+
       // 模拟缩放结束
       const mouseUpEvent = new MouseEvent('mouseup', { bubbles: true })
       document.dispatchEvent(mouseUpEvent)
       await nextTick()
-      
+
       // 验证尺寸更新
       const updatedSticker = store.stickers.find((s: any) => s.id === 'test-1')
       expect(updatedSticker).toBeDefined()
@@ -337,18 +337,18 @@ describe('CanvasBoard.vue', () => {
     it('handles minimum size limit', async () => {
       store.selectedStickerIds = ['test-1']
       await nextTick()
-      
+
       // 找到东南角缩放手柄
       const resizeHandle = wrapper.find('[data-id="test-1"] .resize-handle[data-direction="se"]')
       expect(resizeHandle.exists()).toBe(true)
-      
+
       // 模拟缩放到小于最小尺寸
       await resizeHandle.trigger('mousedown', {
         clientX: 200,
         clientY: 200,
         button: 0
       })
-      
+
       // 模拟鼠标移动到很小的尺寸
       const mouseMoveEvent = new MouseEvent('mousemove', {
         clientX: 105, // 只移动5像素，应该触发最小尺寸限制
@@ -357,12 +357,12 @@ describe('CanvasBoard.vue', () => {
       })
       document.dispatchEvent(mouseMoveEvent)
       await nextTick()
-      
+
       // 模拟鼠标释放
       const mouseUpEvent = new MouseEvent('mouseup', { bubbles: true })
       document.dispatchEvent(mouseUpEvent)
       await nextTick()
-      
+
       // 验证贴纸尺寸不小于最小值
       const updatedSticker = store.stickers.find((s: any) => s.id === 'test-1')
       expect(updatedSticker.width).toBeGreaterThanOrEqual(20)
@@ -374,18 +374,18 @@ describe('CanvasBoard.vue', () => {
     it('handles rotation handle interaction', async () => {
       store.selectedStickerIds = ['test-1']
       await nextTick()
-      
+
       // 找到旋转手柄
       const rotateHandle = wrapper.find('[data-id="test-1"] .rotate-handle')
       expect(rotateHandle.exists()).toBe(true)
-      
+
       // 模拟旋转手柄拖拽
       await rotateHandle.trigger('mousedown', {
         clientX: 200,
         clientY: 100,
         button: 0
       })
-      
+
       // 模拟鼠标移动（旋转）
       const mouseMoveEvent = new MouseEvent('mousemove', {
         clientX: 250,
@@ -394,12 +394,12 @@ describe('CanvasBoard.vue', () => {
       })
       document.dispatchEvent(mouseMoveEvent)
       await nextTick()
-      
+
       // 模拟鼠标释放
       const mouseUpEvent = new MouseEvent('mouseup', { bubbles: true })
       document.dispatchEvent(mouseUpEvent)
       await nextTick()
-      
+
       // 验证贴纸旋转角度是否改变（由于模拟限制，至少验证旋转状态被激活）
       const updatedSticker = store.stickers.find((s: any) => s.id === 'test-1')
       expect(updatedSticker).toBeDefined()
@@ -411,18 +411,18 @@ describe('CanvasBoard.vue', () => {
       // 清除当前选择
       store.selectedStickerIds = []
       await nextTick()
-      
+
       // 在画布上模拟选择框拖拽
       const canvasElement = wrapper.find('.canvas-shadow')
       expect(canvasElement.exists()).toBe(true)
-      
+
       // 模拟从左上角到右下角的选择框拖拽
       await canvasElement.trigger('mousedown', {
         clientX: 50,
         clientY: 50,
         button: 0
       })
-      
+
       // 模拟鼠标移动创建选择框
       const mouseMoveEvent = new MouseEvent('mousemove', {
         clientX: 400,
@@ -431,12 +431,12 @@ describe('CanvasBoard.vue', () => {
       })
       document.dispatchEvent(mouseMoveEvent)
       await nextTick()
-      
+
       // 模拟鼠标释放完成选择
       const mouseUpEvent = new MouseEvent('mouseup', { bubbles: true })
       document.dispatchEvent(mouseUpEvent)
       await nextTick()
-      
+
       // 验证选择结果
       expect(store.selectedStickerIds.length).toBeGreaterThan(0)
     })
@@ -445,7 +445,7 @@ describe('CanvasBoard.vue', () => {
       // 清除当前选择
       store.selectedStickerIds = []
       await nextTick()
-      
+
       // 开始选择框拖拽
       const canvasElement = wrapper.find('.canvas-shadow')
       await canvasElement.trigger('mousedown', {
@@ -453,7 +453,7 @@ describe('CanvasBoard.vue', () => {
         clientY: 50,
         button: 0
       })
-      
+
       // 模拟鼠标移动
       const mouseMoveEvent = new MouseEvent('mousemove', {
         clientX: 100,
@@ -462,12 +462,12 @@ describe('CanvasBoard.vue', () => {
       })
       document.dispatchEvent(mouseMoveEvent)
       await nextTick()
-      
+
       // 模拟Escape键取消选择
       const escapeEvent = new KeyboardEvent('keydown', { key: 'Escape' })
       document.dispatchEvent(escapeEvent)
       await nextTick()
-      
+
       // 验证选择被取消
       expect(store.selectedStickerIds).toEqual([])
     })
@@ -478,16 +478,16 @@ describe('CanvasBoard.vue', () => {
       // 检查画布元素
       const canvasElement = wrapper.find('.canvas-shadow')
       expect(canvasElement.exists()).toBe(true)
-      
+
       // 验证初始画布尺寸
       expect(canvasElement.attributes('style')).toContain('width: 800px')
       expect(canvasElement.attributes('style')).toContain('height: 600px')
-      
+
       // 修改画布尺寸
       store.settings.width = 1200
       store.settings.height = 800
       await nextTick()
-      
+
       // 验证画布尺寸更新
       const updatedCanvas = wrapper.find('.canvas-shadow')
       expect(updatedCanvas.attributes('style')).toContain('width: 1200px')
@@ -502,11 +502,11 @@ describe('CanvasBoard.vue', () => {
       store.settings.gridSize = 20
       store.settings.gridColor = '#e5e7eb'
       await nextTick()
-      
+
       // 检查网格元素
       const gridElement = wrapper.find('.absolute.inset-0.pointer-events-none')
       expect(gridElement.exists()).toBe(true)
-      
+
       // 验证网格样式 - 支持RGB格式
       const gridStyle = gridElement.attributes('style')
       expect(gridStyle).toContain('20px 20px')
@@ -519,7 +519,7 @@ describe('CanvasBoard.vue', () => {
       store.settings.gridSize = 30
       store.settings.gridColor = '#ff0000'
       await nextTick()
-      
+
       const gridElement = wrapper.find('.absolute.inset-0.pointer-events-none')
       const gridStyle = gridElement.attributes('style')
       expect(gridStyle).toContain('30px 30px')
@@ -533,10 +533,10 @@ describe('CanvasBoard.vue', () => {
       // 清空所有贴纸
       store.stickers = []
       await nextTick()
-      
+
       const stickerElements = wrapper.findAll('.sticker-wrapper')
       expect(stickerElements.length).toBe(0)
-      
+
       // 验证画布仍然正常渲染
       const canvasElement = wrapper.find('.canvas-shadow')
       expect(canvasElement.exists()).toBe(true)
@@ -559,7 +559,7 @@ describe('CanvasBoard.vue', () => {
         }
       ]
       await nextTick()
-      
+
       // 验证应用不会崩溃
       const canvasElement = wrapper.find('.canvas-shadow')
       expect(canvasElement.exists()).toBe(true)
@@ -569,20 +569,20 @@ describe('CanvasBoard.vue', () => {
       // 测试各种鼠标事件边界情况
       const canvasElement = wrapper.find('.canvas-shadow')
       expect(canvasElement.exists()).toBe(true)
-      
+
       // 模拟各种边界鼠标事件
       await canvasElement.trigger('mousedown', {
         clientX: 0,
         clientY: 0,
         button: 0
       })
-      
+
       await canvasElement.trigger('mousedown', {
         clientX: -100,
         clientY: -100,
         button: 0
       })
-      
+
       // 验证画布仍然正常工作
       expect(wrapper.find('.canvas-shadow').exists()).toBe(true)
     })
@@ -593,11 +593,11 @@ describe('CanvasBoard.vue', () => {
       // 清除当前选择
       store.selectedStickerIds = []
       await nextTick()
-      
+
       // 模拟App.vue中的键盘事件处理 - 直接调用store方法
       store.selectedStickerIds = store.stickers.map((s: any) => s.id)
       await nextTick()
-      
+
       // 验证所有贴纸被选中
       expect(store.selectedStickerIds.length).toBe(store.stickers.length)
       expect(store.selectedStickerIds).toContain('test-1')
@@ -608,7 +608,7 @@ describe('CanvasBoard.vue', () => {
       // 选择贴纸
       store.selectedStickerIds = ['test-1']
       const initialCount = store.stickers.length
-      
+
       // 模拟App.vue中的删除操作 - 直接调用store方法
       const stickerIndex = store.stickers.findIndex((s: any) => s.id === 'test-1')
       if (stickerIndex !== -1) {
@@ -616,7 +616,7 @@ describe('CanvasBoard.vue', () => {
       }
       store.selectedStickerIds = []
       await nextTick()
-      
+
       // 验证贴纸被删除
       expect(store.stickers.length).toBe(initialCount - 1)
       const deletedSticker = store.stickers.find((s: any) => s.id === 'test-1')

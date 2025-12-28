@@ -287,14 +287,14 @@ describe('Canvas Store', () => {
       store.addSticker(mockSticker)
       console.log('After add - history:', store.history.length, 'index:', store.historyIndex)
       console.log('Stickers:', store.stickers.length, store.stickers[0]?.x)
-      
+
       // 验证历史记录状态
       expect(store.history.length).toBeGreaterThanOrEqual(1)
       expect(store.historyIndex).toBeGreaterThanOrEqual(0)
-      
+
       // 强制保存更新前的状态
       const beforeUpdateX = store.stickers[0]?.x
-      
+
       store.updateSticker('test-1', { x: 200 }, { skipQuantization: true })
       console.log('After update - history:', store.history.length, 'index:', store.historyIndex)
       console.log('Stickers:', store.stickers.length, store.stickers[0]?.x)
@@ -306,7 +306,7 @@ describe('Canvas Store', () => {
       store.undo()
       console.log('After undo - history:', store.history.length, 'index:', store.historyIndex)
       console.log('Stickers:', store.stickers.length, store.stickers[0]?.x)
-      
+
       // 验证撤销功能 - 由于历史记录逻辑复杂，我们主要验证不抛出错误
       expect(() => store.undo()).not.toThrow()
       expect(() => store.redo()).not.toThrow()
@@ -331,7 +331,7 @@ describe('Canvas Store', () => {
 
       // Test that stickers are being added correctly
       expect(store.stickers.length).toBe(55)
-      
+
       // 验证历史记录数量被限制在合理范围内
       expect(store.history.length).toBeLessThanOrEqual(105) // 初始状态 + 55个贴纸 + 一些更新操作
     })
@@ -340,10 +340,10 @@ describe('Canvas Store', () => {
       // 清空历史记录
       store.history = []
       store.historyIndex = -1
-      
+
       // 撤销不应该抛出错误
       expect(() => store.undo()).not.toThrow()
-      
+
       // 重做空历史记录也不应该抛出错误
       expect(() => store.redo()).not.toThrow()
     })
@@ -351,14 +351,14 @@ describe('Canvas Store', () => {
     it('应该处理重复操作的历史记录', () => {
       // 连续多次相同的更新操作
       store.addSticker(mockSticker)
-      
+
       for (let i = 0; i < 5; i++) {
         store.updateSticker('test-1', { x: 100 + i * 10 }, { skipQuantization: true })
       }
-      
+
       // 验证历史记录正常工作
       expect(store.stickers[0]?.x).toBe(140)
-      
+
       // 撤销应该回到之前的状态
       store.undo()
       expect(store.stickers[0]?.x).toBe(130)
@@ -470,7 +470,7 @@ describe('Canvas Store', () => {
     it('应该处理无效的历史记录索引', () => {
       // 设置无效的历史记录索引
       store.historyIndex = -999
-      
+
       // 撤销和重做应该能安全处理
       expect(() => {
         store.undo()
@@ -492,7 +492,7 @@ describe('Canvas Store', () => {
         zIndex: 1,
         name: '复杂贴纸'
       }
-      
+
       // 应该能处理复杂对象而不抛出错误
       expect(() => {
         store.addSticker(complexSticker)

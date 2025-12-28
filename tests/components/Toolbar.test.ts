@@ -37,7 +37,7 @@ describe('Toolbar.vue', () => {
 
     it('renders all toolbar buttons', () => {
       const buttons = wrapper.findAll('button')
-      
+
       // 验证主要功能按钮存在
       const undoButton = buttons.find((btn: any) => 
         btn.attributes('title') === '撤销 (Ctrl+Z)'
@@ -77,7 +77,7 @@ describe('Toolbar.vue', () => {
     it('applies correct styling to toolbar buttons', () => {
       const buttons = wrapper.findAll('button')
       const firstButton = buttons[0]
-      
+
       expect(firstButton.classes()).toContain('rounded')
       expect(firstButton.classes()).toContain('hover:bg-gray-100')
       expect(firstButton.classes()).toContain('transition-colors')
@@ -87,7 +87,7 @@ describe('Toolbar.vue', () => {
       const buttons = wrapper.findAll('button')
       const firstButton = buttons[0]
       const svg = firstButton.find('svg')
-      
+
       expect(svg.exists()).toBe(true)
       expect(svg.classes()).toContain('w-5')
       expect(svg.classes()).toContain('h-5')
@@ -101,7 +101,7 @@ describe('Toolbar.vue', () => {
       const gridButton = buttons.find((btn: any) => 
         btn.text().includes('网格')
       )
-      
+
       expect(gridButton).toBeDefined()
       await gridButton.trigger('click')
       expect(store.settings.showGrid).toBe(!initialGridState)
@@ -112,11 +112,11 @@ describe('Toolbar.vue', () => {
       const canvasSizeButton = buttons.find((btn: any) => 
         btn.text().includes('画布尺寸')
       )
-      
+
       expect(canvasSizeButton).toBeDefined()
       await canvasSizeButton.trigger('click')
       await wrapper.vm.$nextTick()
-      
+
       expect(wrapper.vm.showSizeModal).toBe(true)
       expect(wrapper.text()).toContain('设置画布尺寸')
     })
@@ -126,11 +126,11 @@ describe('Toolbar.vue', () => {
       const exportButton = buttons.find((btn: any) => 
         btn.text().includes('导出')
       )
-      
+
       expect(exportButton).toBeDefined()
       await exportButton.trigger('click')
       await wrapper.vm.$nextTick()
-      
+
       expect(wrapper.vm.showExportModal).toBe(true)
       expect(wrapper.text()).toContain('导出画布')
     })
@@ -140,7 +140,7 @@ describe('Toolbar.vue', () => {
       const backgroundButton = buttons.find((btn: any) => 
         btn.text().includes('背景设置')
       )
-      
+
       expect(backgroundButton).toBeDefined()
       const initialState = wrapper.vm.showBackgroundPanel
       await backgroundButton.trigger('click')
@@ -165,15 +165,15 @@ describe('Toolbar.vue', () => {
         }
       ]
       store.selectedStickerIds = ['test-1']
-      
+
       const buttons = wrapper.findAll('button')
       const clearButton = buttons.find((btn: any) => 
         btn.text().includes('清空')
       )
-      
+
       expect(clearButton).toBeDefined()
       clearButton.trigger('click')
-      
+
       expect(store.stickers).toEqual([])
       expect(store.selectedStickerIds).toEqual([])
     })
@@ -182,10 +182,10 @@ describe('Toolbar.vue', () => {
       wrapper.vm.showSizeModal = true
       wrapper.vm.canvasWidth = 1200
       wrapper.vm.canvasHeight = 800
-      
+
       await wrapper.vm.$nextTick()
       wrapper.vm.applySize()
-      
+
       expect(store.settings.width).toBe(1200)
       expect(store.settings.height).toBe(800)
       expect(wrapper.vm.showSizeModal).toBe(false)
@@ -227,10 +227,10 @@ describe('Toolbar.vue', () => {
     it('handles solid color selection', async () => {
       const colorButtons = wrapper.findAll('.grid button')
       expect(colorButtons.length).toBeGreaterThan(0)
-      
+
       const firstColorButton = colorButtons[0]
       await firstColorButton.trigger('click')
-      
+
       expect(store.settings.backgroundGradient).toBeUndefined()
       expect(store.settings.backgroundImage).toBeUndefined()
     })
@@ -238,11 +238,11 @@ describe('Toolbar.vue', () => {
     it('handles gradient selection', async () => {
       const gradientButtons = wrapper.findAll('.grid button')
       expect(gradientButtons.length).toBeGreaterThan(0)
-      
+
       // 选择最后一个渐变按钮（假设渐变在纯色之后）
       const lastButton = gradientButtons[gradientButtons.length - 1]
       await lastButton.trigger('click')
-      
+
       expect(store.settings.backgroundGradient).toBeDefined()
       expect(store.settings.backgroundImage).toBeUndefined()
     })
@@ -250,7 +250,7 @@ describe('Toolbar.vue', () => {
     it('handles background image upload', async () => {
       // 模拟文件选择和FileReader
       const mockFile = new File(['test'], 'test.jpg', { type: 'image/jpeg' })
-      
+
       global.FileReader = function MockFileReader(this: any) {
         this.readAsDataURL = vi.fn(() => {
           if (this.onload) this.onload({ target: { result: 'data:image/jpeg;base64,test' } })
@@ -264,13 +264,13 @@ describe('Toolbar.vue', () => {
       const fileInput = wrapper.find('input[type="file"]')
       expect(fileInput.exists()).toBe(true)
       expect(fileInput.attributes('accept')).toBe('image/*')
-      
+
       // 模拟文件选择事件
       Object.defineProperty(fileInput.element, 'files', {
         value: [mockFile],
         writable: false
       })
-      
+
       await fileInput.trigger('change')
       expect(store.settings.backgroundImage).toBe('data:image/jpeg;base64,test')
     })
@@ -284,7 +284,7 @@ describe('Toolbar.vue', () => {
         btn.text().includes('清除图片背景')
       )
       expect(clearButton).toBeDefined()
-      
+
       if (clearButton) {
         await clearButton.trigger('click')
         expect(store.settings.backgroundImage).toBeUndefined()
@@ -295,28 +295,28 @@ describe('Toolbar.vue', () => {
       expect(wrapper.text()).toContain('显示网格')
       expect(wrapper.text()).toContain('网格间距')
       expect(wrapper.text()).toContain('网格颜色')
-      
+
       // 测试网格大小滑块
       const rangeInput = wrapper.find('input[type="range"]')
       expect(rangeInput.exists()).toBe(true)
       expect(rangeInput.attributes('min')).toBe('10')
       expect(rangeInput.attributes('max')).toBe('100')
       expect(rangeInput.attributes('step')).toBe('5')
-      
+
       await rangeInput.setValue(50)
       expect(store.settings.gridSize).toBe(50)
-      
+
       // 测试网格颜色选择器
       const colorInput = wrapper.find('input[type="color"]')
       expect(colorInput.exists()).toBe(true)
-      
+
       await colorInput.setValue('#ff0000')
       expect(store.settings.gridColor).toBe('#ff0000')
     })
 
     it('handles grid toggle in background panel', async () => {
       const initialGridState = store.settings.showGrid
-      
+
       // 找到网格切换按钮
       const buttons = wrapper.findAll('button')
       const gridToggleButton = buttons.find((btn: any) => 
@@ -324,7 +324,7 @@ describe('Toolbar.vue', () => {
         btn.classes().includes('w-10') &&
         btn.classes().includes('h-5')
       )
-      
+
       expect(gridToggleButton).toBeDefined()
       await gridToggleButton.trigger('click')
       expect(store.settings.showGrid).toBe(!initialGridState)
@@ -333,7 +333,7 @@ describe('Toolbar.vue', () => {
     it('closes background panel when close button is clicked', async () => {
       const closeButton = wrapper.find('.bg-white button.p-1')
       expect(closeButton.exists()).toBe(true)
-      
+
       await closeButton.trigger('click')
       expect(wrapper.vm.showBackgroundPanel).toBe(false)
     })
@@ -363,10 +363,10 @@ describe('Toolbar.vue', () => {
         btn.text().includes('导出为 PNG 图片')
       )
       expect(exportButton).toBeDefined()
-      
+
       await exportButton.trigger('click')
       await new Promise(resolve => setTimeout(resolve, 100))
-      
+
       expect(wrapper.vm.showExportModal).toBe(false)
       document.body.removeChild(mockCanvasElement)
     })
@@ -386,30 +386,30 @@ describe('Toolbar.vue', () => {
         btn.text().includes('导出为 SVG 矢量图')
       )
       expect(exportButton).toBeDefined()
-      
+
       // 模拟URL创建
       const mockCreateObjectURL = vi.fn(() => 'blob:mock-url')
       const mockRevokeObjectURL = vi.fn()
       global.URL.createObjectURL = mockCreateObjectURL
       global.URL.revokeObjectURL = mockRevokeObjectURL
-      
+
       await exportButton.trigger('click')
       expect(mockCreateObjectURL).toHaveBeenCalled()
     })
 
     it('handles print functionality from export modal', async () => {
       const printSpy = vi.spyOn(window, 'print').mockImplementation(() => {})
-      
+
       const printButton = wrapper.findAll('button').find((btn: any) => 
         btn.text().includes('打印')
       )
       expect(printButton).toBeDefined()
-      
+
       await printButton.trigger('click')
       expect(printSpy).toHaveBeenCalled()
       // 打印功能不会关闭模态框
       expect(wrapper.vm.showExportModal).toBe(true)
-      
+
       printSpy.mockRestore()
     })
 
@@ -418,7 +418,7 @@ describe('Toolbar.vue', () => {
         btn.text().includes('取消')
       )
       expect(cancelButton).toBeDefined()
-      
+
       await cancelButton.trigger('click')
       expect(wrapper.vm.showExportModal).toBe(false)
     })
@@ -434,10 +434,10 @@ describe('Toolbar.vue', () => {
         btn.text().includes('导出为 PNG 图片')
       )
       expect(exportButton).toBeDefined()
-      
+
       await exportButton.trigger('click')
       await new Promise(resolve => setTimeout(resolve, 100))
-      
+
       // exportAsImage函数在canvas元素不存在时会提前返回，不会关闭模态框
       expect(wrapper.vm.showExportModal).toBe(true)
     })
@@ -450,13 +450,13 @@ describe('Toolbar.vue', () => {
         btn.text().includes('导出为 SVG 矢量图')
       )
       expect(exportButton).toBeDefined()
-      
+
       // 模拟URL创建
       const mockCreateObjectURL = vi.fn(() => 'blob:mock-url')
       const mockRevokeObjectURL = vi.fn()
       global.URL.createObjectURL = mockCreateObjectURL
       global.URL.revokeObjectURL = mockRevokeObjectURL
-      
+
       await exportButton.trigger('click')
       expect(mockCreateObjectURL).toHaveBeenCalled()
     })
@@ -477,7 +477,7 @@ describe('Toolbar.vue', () => {
         btn.text().includes('应用')
       )
       expect(applyButton).toBeDefined()
-      
+
       if (applyButton) {
         await applyButton.trigger('click')
         expect(store.settings.width).toBe(1920)
@@ -495,7 +495,7 @@ describe('Toolbar.vue', () => {
         btn.text().includes('取消')
       )
       expect(cancelButton).toBeDefined()
-      
+
       if (cancelButton) {
         await cancelButton.trigger('click')
         expect(wrapper.vm.showSizeModal).toBe(false)
@@ -524,13 +524,13 @@ describe('Toolbar.vue', () => {
 
       const fileInput = wrapper.find('input[type="file"]')
       expect(fileInput.exists()).toBe(true)
-      
+
       const mockFile = new File(['test'], 'test.jpg', { type: 'image/jpeg' })
       Object.defineProperty(fileInput.element, 'files', {
         value: [mockFile],
         writable: false
       })
-      
+
       await fileInput.trigger('change')
       // 验证错误被处理，背景图片未被设置
       expect(store.settings.backgroundImage).toBeUndefined()
@@ -551,13 +551,13 @@ describe('Toolbar.vue', () => {
       // 验证第一个颜色按钮（白色）有选中状态样式
       const colorButtons = wrapper.findAll('.grid button')
       expect(colorButtons.length).toBeGreaterThan(0)
-      
+
       const firstColorButton = colorButtons[0]
       const style = firstColorButton.attributes('style')
       // 检查背景颜色，支持rgb(255,255,255)或#ffffff格式
       const hasWhiteBackground = style.includes('rgb(255, 255, 255)') || style.includes('#ffffff')
       expect(hasWhiteBackground).toBe(true)
-      
+
       // 验证选中状态的样式
       expect(firstColorButton.classes()).toContain('border-blue-500')
       expect(firstColorButton.classes()).toContain('ring-2')
@@ -575,14 +575,14 @@ describe('Toolbar.vue', () => {
         btn.classes().includes('w-10') &&
         btn.classes().includes('h-5')
       )
-      
+
       expect(gridToggleButton).toBeDefined()
       const initialState = store.settings.showGrid
-      
+
       // 检查开关的视觉状态
       const switchHandle = gridToggleButton.find('span')
       expect(switchHandle.exists()).toBe(true)
-      
+
       if (initialState) {
         expect(gridToggleButton.classes()).toContain('bg-blue-600')
         expect(switchHandle.classes()).toContain('translate-x-5')

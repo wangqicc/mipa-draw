@@ -24,7 +24,7 @@ export const useCanvasStore = defineStore('canvas', () => {
   const groupTimeout = ref<number | null>(null)
   const lastStickerStates = ref<Map<string, Sticker>>(new Map())
   const maxHistorySize = 100 // 增加历史记录限制
-  
+
   // 旋转和缩放专用状态
   const rotationStartValue = ref<number>(0)
   const scaleStartValues = ref<{width: number, height: number}>({width: 0, height: 0})
@@ -33,14 +33,14 @@ export const useCanvasStore = defineStore('canvas', () => {
     scale: 10, // 缩放阈值：10像素
     position: 15 // 位置阈值：15像素
   })
-  
+
   // 量化设置
   const quantization = ref({
     rotation: 5, // 旋转量化到5度的倍数
     scale: 5, // 缩放量化到5像素的倍数
     position: 10 // 位置量化到10像素的倍数
   })
-  
+
   // 独立的延迟保存超时
   const rotationSaveTimeout = ref<number | null>(null)
   const scaleSaveTimeout = ref<number | null>(null)
@@ -75,12 +75,12 @@ export const useCanvasStore = defineStore('canvas', () => {
     sticker.zIndex = maxZIndex.value + 1
     stickers.value.push(sticker)
     selectedStickerIds.value = [sticker.id]
-    
+
     // 如果层级过高，进行压缩
     if (sticker.zIndex > 1000) {
       compressZIndices()
     }
-    
+
     saveHistory('add_sticker')
   }
 
@@ -112,20 +112,20 @@ export const useCanvasStore = defineStore('canvas', () => {
           // 量化位置变化
           const newX = updates.x !== undefined ? Math.round(updates.x / quantization.value.position) * quantization.value.position : sticker.x
           const newY = updates.y !== undefined ? Math.round(updates.y / quantization.value.position) * quantization.value.position : sticker.y
-          
+
           // 检查移动距离是否达到阈值
           const moveDistance = Math.sqrt(
             Math.pow(newX - sticker.x, 2) + Math.pow(newY - sticker.y, 2)
           )
-          
+
           if (moveDistance >= transformationThreshold.value.position) {
             // 保存当前状态，为撤销做准备
             saveStickerStateBeforeOperation(id)
-            
+
             // 更新位置
             if (updates.x !== undefined) sticker.x = newX
             if (updates.y !== undefined) sticker.y = newY
-            
+
             // 使用延迟保存，避免过于频繁的历史记录
             if (positionSaveTimeout.value) {
               clearTimeout(positionSaveTimeout.value)
@@ -140,18 +140,18 @@ export const useCanvasStore = defineStore('canvas', () => {
           const oldY = sticker.y
           if (updates.x !== undefined) sticker.x = updates.x
           if (updates.y !== undefined) sticker.y = updates.y
-          
+
           // 如果位置有变化，保存历史记录
           if (oldX !== sticker.x || oldY !== sticker.y) {
             saveHistory('update_sticker')
           }
         }
       }
-      
+
       // 处理非位置更新（宽度、高度、旋转等）
       const nonPositionUpdates: Partial<Sticker> = {}
       let hasNonPositionUpdates = false
-      
+
       Object.keys(updates).forEach(key => {
         if (key !== 'x' && key !== 'y' && updates[key as keyof Sticker] !== undefined) {
           const oldValue = sticker[key as keyof Sticker]
@@ -162,7 +162,7 @@ export const useCanvasStore = defineStore('canvas', () => {
           }
         }
       })
-      
+
       if (hasNonPositionUpdates) {
         Object.assign(sticker, nonPositionUpdates)
         saveHistory('update_sticker')
@@ -176,16 +176,16 @@ export const useCanvasStore = defineStore('canvas', () => {
     if (sticker) {
       // 量化旋转角度
       const quantizedRotation = Math.round(rotation / quantization.value.rotation) * quantization.value.rotation
-      
+
       // 检查是否需要创建新的历史记录（基于阈值）
       const rotationDiff = Math.abs(quantizedRotation - sticker.rotation)
       if (rotationDiff >= transformationThreshold.value.rotation) {
         // 保存当前贴纸的状态，为独立的撤销做准备
         saveStickerStateBeforeOperation(id)
-        
+
         // 更新贴纸旋转角度
         sticker.rotation = quantizedRotation
-        
+
         // 使用延迟保存，避免过于频繁的历史记录创建
         if (rotationSaveTimeout.value) {
           clearTimeout(rotationSaveTimeout.value)
@@ -204,18 +204,18 @@ export const useCanvasStore = defineStore('canvas', () => {
       // 量化尺寸
       const quantizedWidth = Math.round(width / quantization.value.scale) * quantization.value.scale
       const quantizedHeight = Math.round(height / quantization.value.scale) * quantization.value.scale
-      
+
       // 检查缩放变化是否达到阈值
       const widthDiff = Math.abs(quantizedWidth - sticker.width)
       const heightDiff = Math.abs(quantizedHeight - sticker.height)
-      
+
       if (widthDiff >= transformationThreshold.value.scale || heightDiff >= transformationThreshold.value.scale) {
         // 保存当前贴纸的状态，为独立的撤销做准备
         saveStickerStateBeforeOperation(id)
-        
+
         sticker.width = quantizedWidth
         sticker.height = quantizedHeight
-        
+
         // 使用延迟保存，避免过于频繁的历史记录创建
         if (scaleSaveTimeout.value) {
           clearTimeout(scaleSaveTimeout.value)
@@ -231,7 +231,7 @@ export const useCanvasStore = defineStore('canvas', () => {
   function startRotationOperation(id: string, currentRotation: number) {
     rotationStartValue.value = currentRotation
     startOperationGroup('rotate_stickers', 1000)
-    
+
     // 保存所有选中贴纸的初始状态
     selectedStickerIds.value.forEach(stickerId => {
       const sticker = stickers.value.find(s => s.id === stickerId)
@@ -240,11 +240,11 @@ export const useCanvasStore = defineStore('canvas', () => {
       }
     })
   }
-  
+
   // 开始批量旋转操作
   function startBatchRotationOperation() {
     startOperationGroup('rotate_stickers', 1000)
-    
+
     // 保存所有选中贴纸的初始状态
     selectedStickerIds.value.forEach(stickerId => {
       const sticker = stickers.value.find(s => s.id === stickerId)
@@ -253,18 +253,18 @@ export const useCanvasStore = defineStore('canvas', () => {
       }
     })
   }
-  
+
   // 批量旋转贴纸 - 一次性处理所有贴纸
   function batchRotateStickers(centerX: number, centerY: number, newAngle: number) {
     const quantizedRotation = Math.round(newAngle / quantization.value.rotation) * quantization.value.rotation
     const rotationDiff = Math.abs(quantizedRotation - rotationStartValue.value)
-    
+
     if (rotationDiff >= transformationThreshold.value.rotation) {
       if (!operationGroup.value || !operationGroup.value.startsWith('rotate')) {
         startBatchRotationOperation()
         rotationStartValue.value = quantizedRotation
       }
-      
+
       // 批量更新所有贴纸的旋转角度
       selectedStickerIds.value.forEach(stickerId => {
         const sticker = stickers.value.find(s => s.id === stickerId)
@@ -278,7 +278,7 @@ export const useCanvasStore = defineStore('canvas', () => {
           sticker.rotation = Math.round(newRotation / quantization.value.rotation) * quantization.value.rotation
         }
       })
-      
+
       // 延迟保存历史记录
       if (!groupTimeout.value) {
         groupTimeout.value = window.setTimeout(() => {
@@ -293,7 +293,7 @@ export const useCanvasStore = defineStore('canvas', () => {
     scaleStartValues.value = {width: currentWidth, height: currentHeight}
     startOperationGroup('scale_stickers', 1000)
   }
-  
+
   // 设置变换阈值
   function setTransformationThreshold(thresholds: {rotation?: number, scale?: number}) {
     if (thresholds.rotation !== undefined) {
@@ -303,7 +303,7 @@ export const useCanvasStore = defineStore('canvas', () => {
       transformationThreshold.value.scale = thresholds.scale
     }
   }
-  
+
   // 设置量化参数
   function setQuantization(params: {rotation?: number, scale?: number}) {
     if (params.rotation !== undefined) {
@@ -433,15 +433,15 @@ export const useCanvasStore = defineStore('canvas', () => {
   // 压缩层级，避免层级无限增长
   function compressZIndices() {
     if (stickers.value.length <= 1) return
-    
+
     // 按zIndex排序
     const sortedStickers = [...stickers.value].sort((a, b) => a.zIndex - b.zIndex)
-    
+
     // 重新分配层级，从1开始
     sortedStickers.forEach((sticker, index) => {
       sticker.zIndex = index + 1
     })
-    
+
     saveHistory('compress_z_indices')
   }
 
@@ -622,7 +622,7 @@ export const useCanvasStore = defineStore('canvas', () => {
     }
     operationGroup.value = null
     lastStickerStates.value.clear()
-    
+
     // 确保保存任何待处理的历史记录
     if (rotationSaveTimeout.value) {
       clearTimeout(rotationSaveTimeout.value)
@@ -654,7 +654,7 @@ export const useCanvasStore = defineStore('canvas', () => {
 
   // 改进的历史记录初始化 - 避免重复初始化
   let isInitialized = false
-  
+
   watch(() => stickers.value.length, (newLength, oldLength) => {
     // 只在第一次从0到1时初始化历史记录
     if (!isInitialized && newLength === 1 && oldLength === 0) {

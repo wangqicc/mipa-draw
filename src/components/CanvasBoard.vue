@@ -75,7 +75,7 @@ function handleCanvasMouseDown(e: MouseEvent) {
     const selected = store.selectedSticker
     if (selected) {
       isRotating.value = true
-      
+
       // 计算所有选中贴纸的中心点
       let totalX = 0, totalY = 0, count = 0
       store.selectedStickerIds.forEach(id => {
@@ -86,13 +86,13 @@ function handleCanvasMouseDown(e: MouseEvent) {
           count++
         }
       })
-      
+
       if (count > 0) {
         const centerX = totalX / count
         const centerY = totalY / count
         const angle = Math.atan2(point.y - centerY, point.x - centerX)
         dragStart.value = { x: angle * (180 / Math.PI), y: 0 }
-        
+
         // 保存所有选中贴纸的初始状态
         store.selectedStickerIds.forEach(id => {
           const sticker = store.stickers.find(s => s.id === id)
@@ -106,7 +106,7 @@ function handleCanvasMouseDown(e: MouseEvent) {
             })
           }
         })
-        
+
         // 初始化批量旋转操作
         store.startBatchRotationOperation()
       }
@@ -262,7 +262,7 @@ function handleMouseMove(e: MouseEvent) {
   } else if (isRotating.value) {
     // 批量旋转所有选中的贴纸
     if (store.selectedStickerIds.length === 0) return
-    
+
     // 计算所有选中贴纸的中心点
     let totalX = 0, totalY = 0, count = 0
     store.selectedStickerIds.forEach(id => {
@@ -274,14 +274,14 @@ function handleMouseMove(e: MouseEvent) {
       }
     })
     if (count === 0) return
-    
+
     const centerX = totalX / count
     const centerY = totalY / count
-    
+
     // 计算当前鼠标角度相对于起始点的变化
     const currentAngle = Math.atan2(point.y - centerY, point.x - centerX) * (180 / Math.PI)
     const rotationDelta = currentAngle - dragStart.value.x
-    
+
     // 使用批量旋转函数处理所有贴纸
     store.selectedStickerIds.forEach(id => {
       const start = stickerStartMap.value.get(id)
